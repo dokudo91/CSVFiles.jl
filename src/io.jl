@@ -79,10 +79,28 @@ julia> eachrow_csv("test.csv") |> collect
 2-element Vector{Matrix{Float64}}:
  [1.0 2.0]
  [3.0 4.0]
+
+julia> eachrow_csv("test.csv"; header=true) |> collect
+1-element Vector{Matrix{Float64}}:
+ [3.0 4.0]
+
+julia> eachrow_csv("test.csv"; skipstart=1) |> collect
+1-element Vector{Matrix{Float64}}:
+ [3.0 4.0]
 ```
 """
 function eachrow_csv(io::IO; delim=',', ops...)
-    Iterators.map(line -> readdlm(IOBuffer(line), delim; ops...), eachline(io))
+    if get(ops, :header, false)
+        readline(io)
+    end
+    skipstart = get(ops, :skipstart, 0)
+    if skipstart > 0
+        for _ in 1:skipstart
+            readline(io)
+        end
+    end
+    newops = (; ops..., header=false, skipstart=0)
+    Iterators.map(line -> readdlm(IOBuffer(line), delim; newops...), eachline(io))
 end
 
 function eachrow_csv(path::AbstractString; delim=',', encoding=enc"utf-8", ops...)
