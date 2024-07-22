@@ -1,5 +1,5 @@
 module CSVFiles
-export readcsv, writecsv
+export readcsv, writecsv, eachrow_csv
 export filter_row, union_row
 include("io.jl")
 include("matrix.jl")
