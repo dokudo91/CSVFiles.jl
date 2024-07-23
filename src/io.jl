@@ -26,7 +26,15 @@ function readcsv(io::IO, ::Type{Matrix{T}}; delim=',', ops...)::Matrix{T} where 
         readdlm(io, delim, T; ops...)
     end
 end
-readcsv(io::IO, ::Type{Matrix}; delim=',', ops...) = readcsv(io, Matrix{Any}; delim, ops...)
+function readcsv(io::IO, ::Type{Matrix}; delim=',', ops...)
+    if get(ops, :header, false)
+        mat, _ = readdlm(io, delim; ops...)
+        mat
+    else
+        readdlm(io, delim; ops...)
+    end
+end
+readcsv(io::IO, ::Type{Matrix{Any}}; delim=',', ops...) = readcsv(io, Matrix; delim, ops...)
 readcsv(io::IO; delim=',', ops...) = readcsv(io, Matrix; delim, ops...)
 function readcsv(io::IO, ::Type{DataFrame}, T; delim=',', ops...)::DataFrame
     if get(ops, :header, false)
@@ -37,7 +45,15 @@ function readcsv(io::IO, ::Type{DataFrame}, T; delim=',', ops...)::DataFrame
         DataFrame(mat, :auto)
     end
 end
-readcsv(io::IO, ::Type{DataFrame}; delim=',', ops...) = readcsv(io, DataFrame, Any; delim, ops...)
+function readcsv(io::IO, ::Type{DataFrame}; delim=',', ops...)
+    if get(ops, :header, false)
+        mat, header = readdlm(io, delim; ops...)
+        DataFrame(mat, header |> vec)
+    else
+        mat = readdlm(io, delim; ops...)
+        DataFrame(mat, :auto)
+    end
+end
 readcsv(path::AbstractString, T; delim=',', encoding=enc"utf-8", ops...) = readcsv(open(path, encoding), T; delim, ops...)
 readcsv(path::AbstractString; delim=',', encoding=enc"utf-8", ops...) = readcsv(open(path, encoding); delim, ops...)
 function readcsv(path::AbstractString, ::Type{DataFrame}, T; delim=',', encoding=enc"utf-8", ops...)
@@ -70,7 +86,9 @@ writecsv(iopath, mat) = writedlm(iopath, mat, ',')
 
 """
     eachrow_csv(io::IO; delim=',', ops...)
+    eachrow_csv(io::IO, T; delim=',', ops...)
     eachrow_csv(path::AbstractString; delim=',', encoding=enc"utf-8", ops...)
+    eachrow_csv(path::AbstractString, T; delim=',', encoding=enc"utf-8", ops...)
 
 ```jldoctest
 julia> writecsv("test.csv", [1 2;3 4])
@@ -87,9 +105,23 @@ julia> eachrow_csv("test.csv"; header=true) |> collect
 julia> eachrow_csv("test.csv"; skipstart=1) |> collect
 1-element Vector{Matrix{Float64}}:
  [3.0 4.0]
+
+julia> eachrow_csv("test.csv", String) |> collect
+2-element Vector{Matrix{String}}:
+ ["1" "2"]
+ ["3" "4"]
+
 ```
 """
 function eachrow_csv(io::IO; delim=',', ops...)
+    newops = read_header(io, ops)
+    Iterators.map(line -> readdlm(IOBuffer(line), delim; newops...), eachline(io))
+end
+function eachrow_csv(io::IO, T; delim=',', ops...)
+    newops = read_header(io, ops)
+    Iterators.map(line -> readdlm(IOBuffer(line), delim, T; newops...), eachline(io))
+end
+function read_header(io, ops)
     if get(ops, :header, false)
         readline(io)
     end
@@ -99,10 +131,12 @@ function eachrow_csv(io::IO; delim=',', ops...)
             readline(io)
         end
     end
-    newops = (; ops..., header=false, skipstart=0)
-    Iterators.map(line -> readdlm(IOBuffer(line), delim; newops...), eachline(io))
+    (; ops..., header=false, skipstart=0)
 end
 
 function eachrow_csv(path::AbstractString; delim=',', encoding=enc"utf-8", ops...)
     eachrow_csv(open(path, encoding); delim, ops...)
+end
+function eachrow_csv(path::AbstractString, T; delim=',', encoding=enc"utf-8", ops...)
+    eachrow_csv(open(path, encoding), T; delim, ops...)
 end
