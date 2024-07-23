@@ -45,7 +45,7 @@ function readcsv(io::IO, ::Type{DataFrame}, T; delim=',', ops...)::DataFrame
         DataFrame(mat, :auto)
     end
 end
-function readcsv(io::IO, ::Type{DataFrame}; delim=',', ops...)
+function readcsv(io::IO, ::Type{DataFrame}; delim=',', ops...)::DataFrame
     if get(ops, :header, false)
         mat, header = readdlm(io, delim; ops...)
         DataFrame(mat, header |> vec)
